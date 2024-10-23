@@ -35,6 +35,23 @@ def call_history(method: Callable) -> Callable:
     return wrapper
 
 
+def replay(method: Callable) -> None:
+    """call history of a Cache class' method."""
+    if method is None or not hasattr(method, '__self__'):
+        return
+    method_name = method.__qualname__
+    input_key = "{}:inputs".format(method_name)
+    output_key = "{}:outputs".format(method_name)
+    redis = getattr(method.__self__, '_redis', None)
+    if redis.exists(method_name):
+        print("{} was called {} times".format(
+            method_name, int(redis.get(method_name))))
+    method_inp = redis.lrange(input_key, 0, -1)
+    method_out = redis.lrange(output_key, 0, -1)
+    for key, value in zip(method_inp, method_out):
+        print('{}(*{}) -> {}'.format(method_name, key, value))
+
+
 class Cache:
     """
     Represent an object for storing data in a Redis.
