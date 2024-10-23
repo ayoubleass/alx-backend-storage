@@ -19,6 +19,22 @@ def count_calls(method: Callable) -> Callable:
     return wrapper
 
 
+def call_history(method: Callable) -> Callable:
+    """Stores the output and inputs of the called method"""
+    @wraps(method)
+    def wrapper(self, *args, **kwds) -> Any:
+        """Stores the output and inputs of the called method"""
+        input_key = "{}:inputs".format(method.__qualname__)
+        output_key = "{}:outputs".format(method.__qualname__)
+        if isinstance(self, Cache):
+            self._redis.rpush(input_key, str(args))
+        output = method(self, *args, **kwds)
+        if hasattr(self, '_redis'):
+            self._redis.rpush(output_key, output)
+        return output
+    return wrapper
+
+
 class Cache:
     """
     Represent an object for storing data in a Redis.
@@ -30,6 +46,7 @@ class Cache:
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @call_history
     @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """Stores data in the cache and returns the generated key."""
